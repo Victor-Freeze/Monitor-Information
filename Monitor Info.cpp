@@ -24,7 +24,7 @@ void getMonitorInfoDEVMODE() {
     std::cout << "DEVMODE - Current Refresh Rate: " << dm.dmDisplayFrequency << " Hz" << std::endl;
 }
 
-void getMonitorInfoDXGI() {
+void getMonitorInfoDXGI_OD() {
     IDXGIFactory* pFactory = nullptr;
     if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory))) {
         std::cerr << "Failed to create DXGI Factory" << std::endl;
@@ -70,13 +70,61 @@ void getMonitorInfoDXGI() {
     pFactory->Release();
 }
 
+void getMonitorInfoDXGI_MD() {
+    IDXGIFactory* pFactory = nullptr;
+    if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory))) {
+        std::cerr << "Failed to create DXGI Factory" << std::endl;
+        return;
+    }
+
+    IDXGIAdapter* pAdapter = nullptr;
+    if (FAILED(pFactory->EnumAdapters(0, &pAdapter))) {
+        std::cerr << "Failed to enumerate adapters" << std::endl;
+        pFactory->Release();
+        return;
+    }
+
+    IDXGIOutput* pOutput = nullptr;
+    if (FAILED(pAdapter->EnumOutputs(0, &pOutput))) {
+        std::cerr << "Failed to enumerate outputs" << std::endl;
+        pAdapter->Release();
+        pFactory->Release();
+        return;
+    }
+
+    UINT numModes = 0;
+    pOutput->GetDisplayModeList(DXGI_FORMAT_R8G8B8A8_UNORM, 0, &numModes, NULL);
+    DXGI_MODE_DESC* pModeDescs = new DXGI_MODE_DESC[numModes];
+    pOutput->GetDisplayModeList(DXGI_FORMAT_R8G8B8A8_UNORM, 0, &numModes, pModeDescs);
+
+    for (UINT i = 0; i < numModes; ++i) {
+        if (pModeDescs[i].Width == GetSystemMetrics(SM_CXSCREEN) &&
+            pModeDescs[i].Height == GetSystemMetrics(SM_CYSCREEN)) {
+            std::cout << "DXGI - Current Monitor Resolution: " << pModeDescs[i].Width << " x " << pModeDescs[i].Height << std::endl;
+            std::cout << "DXGI - Current Refresh Rate: " << std::fixed << std::setprecision(3)
+                << static_cast<double>(pModeDescs[i].RefreshRate.Numerator) / pModeDescs[i].RefreshRate.Denominator << " Hz" << std::endl;
+            break;
+        }
+    }
+
+    delete[] pModeDescs;
+    pOutput->Release();
+    pAdapter->Release();
+    pFactory->Release();
+}
+
 int main() {
     std::cout << "Using DEVMODE:" << std::endl;
     getMonitorInfoDEVMODE();
     std::cout << std::endl;
 
-    std::cout << "Using DXGI:" << std::endl;
-    getMonitorInfoDXGI();
+    std::cout << "Using DXGI_OUTPUT_DESC:" << std::endl;
+    getMonitorInfoDXGI_OD();
+    std::cout << std::endl;
+
+    std::cout << "Using DXGI_MODE_DESC:" << std::endl;
+    getMonitorInfoDXGI_MD();
+    std::cout << std::endl;
 
     std::cout << "Press any key to exit..." << std::endl;
     std::cin.get();
